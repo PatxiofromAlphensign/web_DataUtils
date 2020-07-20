@@ -9,26 +9,41 @@ import random
 np.random.seed(1337)
 random.seed(1337)
 torch.manual_seed(1337)
-torch.cuda.manual_seed(1337)
+torch.cuda.manual_seed(337)
 
-def batch_generator(X, y, batch_size=128, return_idx=False, crf=False):
-    for offset in range(0, X.shape[0], batch_size):
-        batch_X_len=np.sum(X[offset:offset+batch_size]!=0, axis=1)
-        batch_idx=batch_X_len.argsort()[::-1]
-        batch_X_len=batch_X_len[batch_idx]
-        batch_X_mask=(X[offset:offset+batch_size]!=0)[batch_idx].astype(np.uint8)
-        batch_X=X[offset:offset+batch_size][batch_idx] 
-        batch_y=y[offset:offset+batch_size][batch_idx]
-        batch_X = torch.autograd.Variable(torch.from_numpy(batch_X).long().cuda() )
-        batch_X_mask=torch.autograd.Variable(torch.from_numpy(batch_X_mask).long().cuda() )
-        batch_y = torch.autograd.Variable(torch.from_numpy(batch_y).long().cuda() )
-        if len(batch_y.size() )==2 and not crf:
-            batch_y=torch.nn.utils.rnn.pack_padded_sequence(batch_y, batch_X_len, batch_first=True)
-        if return_idx: #in testing, need to sort back.
-            yield (batch_X, batch_y, batch_X_len, batch_X_mask, batch_idx)
-        else:
-            yield (batch_X, batch_y, batch_X_len, batch_X_mask)
+def batch_generator(X, y, batch_size=128, scaled=False, return_idx=False, crf=False):
+    b_lens = []
+    idx = []
+    for offset in range(0, X.shape[0]*batch_size if scaled else X.shape[0] , batch_size):
+        cmpr_X = X[offset:offset+batch_size]!=0
+        cmpr_y = y[offset:offset+batch_size]!= 0
+        sum_x = (torch.sum(cmpr_X))
+        b_lens.append(sum_x)
+        x_idx = b_lens[sum_x.argsort()]
+        if len(idx) > 0:
+            if x_idx == idx[-1]:
+               idx.append(idx)
             
+            
+        
+
+        if False:
+            return batch_X_len
+            batch_X_mask=(X[offset:offset+batch_size]!=0)[batch_idx].astype(np.uint8)
+            batch_X=X[offset:offset+batch_size][batch_idx] 
+            batch_y=y[offset:offset+batch_size][batch_idx]
+            batch_X = torch.autograd.Variable(torch.from_numpy(batch_X).long().cuda() )
+            batch_X_mask=torch.autograd.Variable(torch.from_numpy(batch_X_mask).long().cuda() )
+            batch_y = torch.autograd.Variable(torch.from_numpy(batch_y).long().cuda() )
+            if len(batch_y.size() )==2 and not crf:
+                batch_y=torch.nn.utils.rnn.pack_padded_sequence(batch_y, batch_X_len, batch_first=True)
+            if return_idx: #in testing, need to sort back.
+               
+                return (batch_X, batch_y, batch_X_len, batch_X_mask, batch_idx)
+            else:
+                return (batch_X, batch_y, batch_X_len, batch_X_mask)
+    return np.unique(b_lens)
+
 class Model(torch.nn.Module):
     def __init__(self, gen_emb, domain_emb, num_classes=3, dropout=0.5, crf=False):
         super(Model, self).__init__()
